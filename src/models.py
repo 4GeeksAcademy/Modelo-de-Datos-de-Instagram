@@ -45,6 +45,44 @@ class Posts(db.Model):
         }
 
 
+class Comment(db.Model):
+    __tablename__ = 'comments'
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), nullable=False)
+    post_id: Mapped[int] = mapped_column(
+        ForeignKey('posts.id'), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(), default=datetime.utcnow)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "post_id": self.post_id,
+            "content": self.content,
+            "created_at": self.created_at.isoformat()
+        }
+
+
+class Follow(db.Model):
+    __tablename__ = 'follows'
+
+    follower_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    followed_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow)
+
+    def serialize(self):
+        return {
+            "follower_id": self.follower_id,
+            "followed_id": self.followed_id,
+            "created_at": self.created_at.isoformat()
+        }
+
+
+
 # Generar diagrama
 try:
     render_er(db.Model, 'diagram.png')
