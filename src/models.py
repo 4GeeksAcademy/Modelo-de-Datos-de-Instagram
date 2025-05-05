@@ -1,7 +1,7 @@
 from eralchemy2 import render_er
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from datetime import datetime
 
 db = SQLAlchemy()
@@ -16,15 +16,36 @@ class User(db.Model):
     password: Mapped[str] = mapped_column(nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean(), nullable=False)
 
+    posts = relationship("Post", back_populates="user", cascade="all, delete")
+    comments = relationship(
+        "Comment", back_populates="user", cascade="all, delete")
+
+    followers = relationship(
+        "Follow",
+        foreign_keys='Follow.followed_id',
+        back_populates="followed",
+        cascade="all, delete"
+    )
+
+    following = relationship(
+        "Follow",
+        foreign_keys='Follow.follower_id',
+        back_populates="follower",
+        cascade="all, delete"
+    )
+
     def serialize(self):
         return {
             "id": self.id,
             "email": self.email,
+            "followers": [follow.follower_id for follow in self.followers],
+            "following": [follow.followed_id for follow in self.following]
+
             # do not serialize the password, it's a security breach
         }
 
 
-class Posts(db.Model):
+class Post(db.Model):
     __tablename__ = 'posts'
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -34,6 +55,10 @@ class Posts(db.Model):
     content: Mapped[str] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(), default=datetime.utcnow)
+
+    user = relationship("User", back_populates="posts")
+    comments = relationship(
+        "Comment", back_populates="post", cascade="all, delete")
 
     def serialize(self):
         return {
@@ -57,6 +82,9 @@ class Comment(db.Model):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(), default=datetime.utcnow)
 
+    user = relationship("User", back_populates="comments")
+    post = relationship("Post", back_populates="comments")
+
     def serialize(self):
         return {
             "id": self.id,
@@ -70,9 +98,18 @@ class Comment(db.Model):
 class Follow(db.Model):
     __tablename__ = 'follows'
 
-    follower_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
-    followed_id: Mapped[int] = mapped_column(ForeignKey('users.id'), primary_key=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow)
+    follower_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), primary_key=True)
+    followed_id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(), default=datetime.utcnow)
+
+    # Relaciones
+    follower = relationship("User", foreign_keys=[
+                            follower_id], back_populates="following")
+    followed = relationship("User", foreign_keys=[
+                            followed_id], back_populates="followers")
 
     def serialize(self):
         return {
@@ -80,7 +117,6 @@ class Follow(db.Model):
             "followed_id": self.followed_id,
             "created_at": self.created_at.isoformat()
         }
-
 
 
 # Generar diagrama
